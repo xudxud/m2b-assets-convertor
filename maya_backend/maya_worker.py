@@ -874,7 +874,7 @@ def run(args):
         clean_manifest_textures(materials)
         manifest = {
             "schemaVersion": SCHEMA_VERSION,
-            "generator": {"name": "M2B", "version": "0.2.3"},
+            "generator": {"name": "M2B", "version": "0.2.4"},
             "asset": {
                 "source": input_path,
                 "fbx": os.path.basename(fbx_path),

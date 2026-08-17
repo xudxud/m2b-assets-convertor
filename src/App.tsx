@@ -346,7 +346,7 @@ function App() {
 
           <section className="maya-path">
             <Settings2 size={15} />
-            <div><small>MAYA WORKER</small><span title={mayapyPath}>{shortPath(mayapyPath || "未设置")}</span></div>
+            <div><small>MAYAPY 路径</small><span title={mayapyPath}>{shortPath(mayapyPath || "未设置")}</span></div>
             <button onClick={chooseMayapy} disabled={running}>更改</button>
           </section>
           <button className="addon-link" onClick={revealBlenderAddon}>
