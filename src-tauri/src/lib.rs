@@ -25,7 +25,7 @@ struct MayaEnvironment {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct MbFile {
+struct MayaSceneFile {
     path: String,
     name: String,
     size: u64,
@@ -96,13 +96,16 @@ fn detect_maya(path: Option<String>) -> MayaEnvironment {
 }
 
 #[tauri::command]
-fn scan_mb_files(input_paths: Vec<String>) -> Result<Vec<MbFile>, String> {
+fn scan_maya_scenes(input_paths: Vec<String>) -> Result<Vec<MayaSceneFile>, String> {
     let mut paths = Vec::new();
 
     for input in input_paths {
         let path = PathBuf::from(input);
         if path.is_file() {
-            return Err("请选择或拖入包含 MB 文件的文件夹".to_string());
+            if is_maya_scene_file(&path) {
+                paths.push(path);
+            }
+            continue;
         }
         if path.is_dir() {
             for entry in WalkDir::new(path)
@@ -110,7 +113,7 @@ fn scan_mb_files(input_paths: Vec<String>) -> Result<Vec<MbFile>, String> {
                 .into_iter()
                 .filter_map(Result::ok)
             {
-                if entry.file_type().is_file() && is_mb_file(entry.path()) {
+                if entry.file_type().is_file() && is_maya_scene_file(entry.path()) {
                     paths.push(entry.into_path());
                 }
             }
@@ -123,7 +126,7 @@ fn scan_mb_files(input_paths: Vec<String>) -> Result<Vec<MbFile>, String> {
         .into_iter()
         .map(|path| {
             let metadata = std::fs::metadata(&path).map_err(|error| error.to_string())?;
-            Ok(MbFile {
+            Ok(MayaSceneFile {
                 name: path
                     .file_name()
                     .unwrap_or_default()
@@ -136,9 +139,12 @@ fn scan_mb_files(input_paths: Vec<String>) -> Result<Vec<MbFile>, String> {
         .collect()
 }
 
-fn is_mb_file(path: &Path) -> bool {
+fn is_maya_scene_file(path: &Path) -> bool {
     path.extension()
-        .map(|extension| extension.to_string_lossy().eq_ignore_ascii_case("mb"))
+        .map(|extension| {
+            let extension = extension.to_string_lossy();
+            extension.eq_ignore_ascii_case("mb") || extension.eq_ignore_ascii_case("ma")
+        })
         .unwrap_or(false)
 }
 
@@ -441,10 +447,55 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             detect_maya,
             blender_addon_path,
-            scan_mb_files,
+            scan_maya_scenes,
             start_batch,
             stop_batch
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{is_maya_scene_file, scan_maya_scenes};
+    use std::fs;
+    use std::path::Path;
+
+    #[test]
+    fn recognizes_maya_scene_extensions_case_insensitively() {
+        assert!(is_maya_scene_file(Path::new("asset.mb")));
+        assert!(is_maya_scene_file(Path::new("asset.MB")));
+        assert!(is_maya_scene_file(Path::new("asset.ma")));
+        assert!(is_maya_scene_file(Path::new("asset.MA")));
+    }
+
+    #[test]
+    fn rejects_non_maya_scene_extensions() {
+        assert!(!is_maya_scene_file(Path::new("asset.fbx")));
+        assert!(!is_maya_scene_file(Path::new("asset.mb.bak")));
+        assert!(!is_maya_scene_file(Path::new("asset")));
+    }
+
+    #[test]
+    fn scans_mixed_files_and_folders_without_duplicates() {
+        let root = std::env::temp_dir().join(format!("m2b-scan-test-{}", std::process::id()));
+        let nested = root.join("nested");
+        let direct = root.join("direct.MA");
+        fs::create_dir_all(&nested).unwrap();
+        fs::write(&direct, b"").unwrap();
+        fs::write(nested.join("inside.mb"), b"").unwrap();
+        fs::write(nested.join("ignored.fbx"), b"").unwrap();
+
+        let scenes = scan_maya_scenes(vec![
+            direct.to_string_lossy().into_owned(),
+            root.to_string_lossy().into_owned(),
+        ])
+        .unwrap();
+
+        assert_eq!(scenes.len(), 2);
+        assert!(scenes
+            .iter()
+            .all(|scene| scene.path.ends_with(".MA") || scene.path.ends_with(".mb")));
+        fs::remove_dir_all(root).unwrap();
+    }
 }

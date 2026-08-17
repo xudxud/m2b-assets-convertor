@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -25,13 +26,13 @@ import "./App.css";
 
 type JobStatus = "queued" | "processing" | "completed" | "failed" | "stopped";
 
-interface MbFile {
+interface MayaSceneFile {
   path: string;
   name: string;
   size: number;
 }
 
-interface Job extends MbFile {
+interface Job extends MayaSceneFile {
   selected: boolean;
   status: JobStatus;
   detail: string;
@@ -90,6 +91,7 @@ function shortPath(path: string) {
 }
 
 function App() {
+  const [appVersion, setAppVersion] = useState("");
   const [jobs, setJobs] = useState<Job[]>([]);
   const [mayapyPath, setMayapyPath] = useState("");
   const [environment, setEnvironment] = useState<MayaEnvironment | null>(null);
@@ -110,8 +112,8 @@ function App() {
   const scanPaths = async (paths: string[]) => {
     if (!paths.length) return;
     try {
-      const files = await invoke<MbFile[]>("scan_mb_files", { inputPaths: paths });
-      appendLog(`扫描完成，共发现 ${files.length} 个 MB 文件。`);
+      const files = await invoke<MayaSceneFile[]>("scan_maya_scenes", { inputPaths: paths });
+      appendLog(`扫描完成，共发现 ${files.length} 个 Maya 场景。`);
       setJobs((current) => {
         const known = new Set(current.map((item) => item.path.toLowerCase()));
         const additions = files
@@ -140,6 +142,7 @@ function App() {
   };
 
   useEffect(() => {
+    void getVersion().then(setAppVersion);
     checkMaya();
 
     const subscriptions = Promise.all([
@@ -308,7 +311,7 @@ function App() {
             <button className="drop-zone" onClick={chooseFolder} disabled={running}>
               <FolderOpen size={24} />
               <span>选择资产文件夹</span>
-              <small>递归查找 .mb，也可以拖入文件夹</small>
+              <small>递归查找 .mb / .ma，也可拖入文件或文件夹</small>
             </button>
           </section>
 
@@ -390,7 +393,7 @@ function App() {
                 <div className="empty-state">
                   <div className="empty-orbit"><FileBox size={34} /></div>
                   <h3>队列还是空的</h3>
-                  <p>选择或拖入包含 `.mb` 文件的资产目录</p>
+                  <p>选择文件夹，或拖入 `.mb`、`.ma` 文件及文件夹</p>
                 </div>
               )}
               {jobs.map((job) => (
@@ -449,7 +452,7 @@ function App() {
           </footer>
         </main>
       </div>
-      <div className="build-tag"><Sparkles size={12} /> MAYA 2020 PIPELINE · ALPHA 01</div>
+      <div className="build-tag"><Sparkles size={12} /> M2B{appVersion ? ` · v${appVersion}` : ""}</div>
     </div>
   );
 }

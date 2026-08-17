@@ -27,7 +27,7 @@ Only materials assigned to exported meshes are processed. Ambiguous multi-textur
 
 ## Desktop Workflow
 
-- Select one or more asset folders and recursively discover `.mb` scenes.
+- Select asset folders or drop `.mb`, `.ma`, and folders together for recursive discovery.
 - Newly discovered scenes are selected by default and can be toggled individually.
 - Optional opacity inversion writes separate PNG maps for white-transparent source textures.
 - Source textures and Maya files are never modified.

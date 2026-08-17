@@ -1,6 +1,6 @@
 [package]
 name = "m2b-tauri"
-version = "0.2.4"
+version = "0.2.5"
 description = "Maya to Blender static asset conversion pipeline"
 authors = ["M2B"]
 edition = "2021"
